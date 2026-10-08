@@ -1,0 +1,38 @@
+# Стартовый скрипт этапа 5: команда touch.
+# Запуск: python src/main.py --vfs scripts/vfs/deep.csv --script scripts/startup/stage5_all.txt
+# Все изменения VFS происходят только в памяти: CSV-файл остаётся прежним.
+
+cd /home/user/docs/notes
+ls -l
+
+# ===== touch: все режимы =====
+touch new.txt                    # создать новый пустой файл
+ls -l                            # файл new.txt появился (размер 0)
+touch todo.txt                   # существующий файл остаётся без изменений
+touch a.txt b.txt c.txt          # несколько файлов за один вызов
+ls
+touch -c ghost.txt               # -c: не создавать несуществующий файл
+ls                               # ghost.txt нет в списке
+touch ../report.md               # относительный путь с ..
+ls ..
+touch /tmp/mark                  # абсолютный путь
+ls -l /tmp
+touch ~/root_file.txt            # путь от домашнего каталога (корня VFS)
+cd ~
+ls
+
+# ===== созданные файлы видны другим командам =====
+find /home/user/docs -type f
+find / -name "*.txt" -type f
+vfs-info                         # число файлов выросло, размер прежний
+
+# ===== touch: обработка ошибок =====
+touch                            # ошибка: не указан файл
+touch -x file.txt                # ошибка: неизвестная опция
+touch nodir/file.txt             # ошибка: нет родительского каталога
+touch /etc/config.cfg/inner.txt  # ошибка: родитель — файл, а не каталог
+cd /home/user/docs/notes
+touch ok1.txt nodir/bad.txt ok2.txt   # остановка на первой ошибке
+ls                               # ok1.txt создан, ok2.txt не создан
+
+exit

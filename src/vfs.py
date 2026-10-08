@@ -118,6 +118,19 @@ class VFS:
             raise VFSError(f"duplicate path '{ROOT + ROOT.join(parts)}'")
         parent.children[name] = Node(name, False, data)
 
+    def create_file(self, abs_path):
+        """Создаёт пустой файл в памяти по абсолютному пути.
+
+        Родительский каталог должен существовать. Исходный CSV не меняется.
+        """
+        parent = self.find_node(posixpath.dirname(abs_path))
+        if parent is None:
+            raise VFSError("No such file or directory")
+        if not parent.is_dir:
+            raise VFSError("Not a directory")
+        name = posixpath.basename(abs_path)
+        parent.children[name] = Node(name, False)
+
     def add_row(self, row):
         """Добавляет в VFS элемент, описанный строкой CSV."""
         if len(row) != len(COLUMNS):

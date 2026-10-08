@@ -5,11 +5,12 @@ import datetime
 import fnmatch
 import posixpath
 
-from vfs import HOME_MARK, ROOT, normalize
+from vfs import HOME_MARK, ROOT, VFSError, normalize
 
 CURRENT_DIR = "."
 LS_OPTIONS = "al"
 CAL_OPTIONS = "m"
+TOUCH_OPTIONS = "c"
 MIN_MONTH = 1
 MAX_MONTH = 12
 MIN_YEAR = 1
@@ -215,6 +216,27 @@ def cmd_find(shell, args):
     return lines
 
 
+def touch_one(shell, path, no_create):
+    """Создаёт пустой файл в VFS, если его ещё нет (только в памяти)."""
+    abs_path = normalize(shell.cwd, path)
+    if no_create or shell.vfs.find_node(abs_path) is not None:
+        return
+    try:
+        shell.vfs.create_file(abs_path)
+    except VFSError as error:
+        raise CommandError(f"cannot touch '{path}': {error}") from error
+
+
+def cmd_touch(shell, args):
+    """touch [-c] ФАЙЛ... — создаёт пустые файлы; -c: не создавать."""
+    flags, paths = split_options(args, TOUCH_OPTIONS)
+    if not paths:
+        raise CommandError("missing file operand")
+    for path in paths:
+        touch_one(shell, path, "c" in flags)
+    return []
+
+
 def cmd_vfs_info(shell, args):
     """Служебная команда: сведения о загруженной VFS."""
     if args:
@@ -241,6 +263,7 @@ COMMANDS = {
     "cal": cmd_cal,
     "whoami": cmd_whoami,
     "find": cmd_find,
+    "touch": cmd_touch,
     "vfs-info": cmd_vfs_info,
     "exit": cmd_exit,
 }

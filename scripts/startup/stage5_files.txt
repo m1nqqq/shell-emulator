@@ -1,0 +1,13 @@
+# Стартовый скрипт этапа 5 для VFS scripts/vfs/files.csv.
+# Запуск: python src/main.py --vfs scripts/vfs/files.csv --script scripts/startup/stage5_files.txt
+
+ls -a
+touch fresh.txt .dotfile
+ls -la
+cd docs
+touch ../up.txt inside.txt
+ls
+find / -type f -name "*.txt"
+touch -c nothing.txt
+touch missing_dir/x.txt
+exit

@@ -77,6 +77,33 @@ class LoadTest(unittest.TestCase):
         self.assertIsNone(loaded.find_node("/a.txt/inside"))
 
 
+class InMemoryTest(unittest.TestCase):
+    """Проверка того, что изменения VFS остаются только в памяти."""
+
+    def test_create_file_does_not_touch_source(self):
+        """create_file меняет дерево, но не исходный CSV."""
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "vfs.csv")
+            with open(path, "w", encoding="utf-8", newline="") as file:
+                file.write(HEADER + "/d,dir,,\n")
+            with open(path, "rb") as file:
+                before = file.read()
+            loaded = vfs.load_csv(path)
+            loaded.create_file("/d/new.txt")
+            with open(path, "rb") as file:
+                after = file.read()
+        self.assertEqual(before, after)
+        self.assertEqual(loaded.stats(), (1, 1, 0))
+
+    def test_create_file_errors(self):
+        """Нет родителя или родитель — файл."""
+        loaded = load_text(HEADER + "/f,file,text,x\n")
+        with self.assertRaises(vfs.VFSError):
+            loaded.create_file("/nodir/a")
+        with self.assertRaises(vfs.VFSError):
+            loaded.create_file("/f/a")
+
+
 class MotdTest(unittest.TestCase):
     """Проверка сообщения motd."""
 

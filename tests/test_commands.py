@@ -239,6 +239,93 @@ class WhoamiTest(unittest.TestCase):
         self.assertEqual(lines, ["whoami: extra operand 'now'"])
 
 
+class TouchTest(unittest.TestCase):
+    """Проверка touch."""
+
+    def test_create_file(self):
+        """Новый файл создаётся пустым."""
+        instance = make_shell()
+        result, lines = run(instance, "touch new.txt")
+        self.assertTrue(result)
+        self.assertEqual(lines, [])
+        node = instance.vfs.find_node("/new.txt")
+        self.assertFalse(node.is_dir)
+        self.assertEqual(node.size, 0)
+
+    def test_visible_to_other_commands(self):
+        """Созданный файл виден в ls и find."""
+        instance = make_shell()
+        run(instance, "touch new.txt")
+        self.assertIn("new.txt", run(instance, "ls")[1][0])
+        self.assertIn("./new.txt", run(instance, "find")[1])
+
+    def test_existing_file_unchanged(self):
+        """touch существующего файла не меняет его содержимое."""
+        instance = make_shell()
+        run(instance, "touch readme.txt")
+        self.assertEqual(instance.vfs.find_node("/readme.txt").data, b"hello")
+
+    def test_existing_directory_ok(self):
+        """touch существующего каталога — не ошибка."""
+        result, _ = run(make_shell(), "touch docs")
+        self.assertTrue(result)
+
+    def test_multiple_files(self):
+        """Несколько файлов за один вызов."""
+        instance = make_shell()
+        run(instance, "touch a b c")
+        for name in ("a", "b", "c"):
+            self.assertIsNotNone(instance.vfs.find_node("/" + name))
+
+    def test_relative_and_absolute_paths(self):
+        """Относительный (с ..), абсолютный пути и путь с ~."""
+        instance = make_shell()
+        run(instance, "cd docs/deep")
+        run(instance, "touch ../x.txt /y.txt ~/z.txt")
+        for path in ("/docs/x.txt", "/y.txt", "/z.txt"):
+            self.assertIsNotNone(instance.vfs.find_node(path), path)
+
+    def test_no_create_option(self):
+        """Опция -c не создаёт отсутствующие файлы."""
+        instance = make_shell()
+        result, _ = run(instance, "touch -c ghost.txt")
+        self.assertTrue(result)
+        self.assertIsNone(instance.vfs.find_node("/ghost.txt"))
+
+    def test_missing_operand(self):
+        """Без аргументов — ошибка."""
+        result, lines = run(make_shell(), "touch")
+        self.assertFalse(result)
+        self.assertEqual(lines, ["touch: missing file operand"])
+
+    def test_invalid_option(self):
+        """Неизвестная опция — ошибка."""
+        result, lines = run(make_shell(), "touch -x f")
+        self.assertFalse(result)
+        self.assertEqual(lines, ["touch: invalid option -- 'x'"])
+
+    def test_missing_parent(self):
+        """Нет родительского каталога."""
+        result, lines = run(make_shell(), "touch nodir/f.txt")
+        self.assertFalse(result)
+        self.assertEqual(lines, [
+            "touch: cannot touch 'nodir/f.txt': No such file or directory"])
+
+    def test_parent_is_file(self):
+        """Родитель — файл, а не каталог."""
+        result, lines = run(make_shell(), "touch readme.txt/f")
+        self.assertFalse(result)
+        self.assertEqual(lines, [
+            "touch: cannot touch 'readme.txt/f': Not a directory"])
+
+    def test_stops_at_first_error(self):
+        """После первой ошибки остальные файлы не создаются."""
+        instance = make_shell()
+        run(instance, "touch ok1 nodir/bad ok2")
+        self.assertIsNotNone(instance.vfs.find_node("/ok1"))
+        self.assertIsNone(instance.vfs.find_node("/ok2"))
+
+
 class FindTest(unittest.TestCase):
     """Проверка find."""
 
