@@ -61,6 +61,60 @@ class DebugTest(unittest.TestCase):
         self.assertIn("[debug]   script = <not set>", out)
 
 
+def write_vfs(folder, text):
+    """Создаёт CSV-файл VFS и возвращает его путь."""
+    path = os.path.join(folder, "vfs.csv")
+    with open(path, "w", encoding="utf-8", newline="") as file:
+        file.write(text)
+    return path
+
+
+class VfsTest(unittest.TestCase):
+    """Проверка подключения VFS."""
+
+    header = "path,type,encoding,content\n"
+
+    def test_motd_shown_at_start(self):
+        """Сообщение motd выводится при старте."""
+        with tempfile.TemporaryDirectory() as folder:
+            path = write_vfs(folder, self.header + "/motd,file,text,Hi!\n")
+            code, out, _ = run_main(["--vfs", path])
+        self.assertEqual(code, 0)
+        self.assertIn("Hi!", out)
+
+    def test_no_motd(self):
+        """Без motd ничего лишнего не выводится."""
+        with tempfile.TemporaryDirectory() as folder:
+            path = write_vfs(folder, self.header)
+            _, out, _ = run_main(["--vfs", path])
+        self.assertNotIn("Hi!", out)
+
+    def test_vfs_file_not_found(self):
+        """Отсутствующий файл VFS: сообщение и код 1."""
+        code, _, err = run_main(["--vfs", "no_such_vfs.csv"])
+        self.assertEqual(code, 1)
+        self.assertIn("cannot load VFS: file not found", err)
+
+    def test_vfs_invalid_format(self):
+        """Неверный формат VFS: сообщение и код 1."""
+        with tempfile.TemporaryDirectory() as folder:
+            path = write_vfs(folder, "wrong\n")
+            code, _, err = run_main(["--vfs", path])
+        self.assertEqual(code, 1)
+        self.assertIn("invalid format", err)
+
+    def test_vfs_info_in_script(self):
+        """Служебная команда vfs-info видит загруженную VFS."""
+        with tempfile.TemporaryDirectory() as folder:
+            vfs_path = write_vfs(
+                folder, self.header + "/d/a.txt,file,text,abc\n")
+            script = write_script(folder, "vfs-info\nexit\n")
+            _, out, _ = run_main(["--vfs", vfs_path, "--script", script])
+        self.assertIn("directories: 1", out)
+        self.assertIn("files: 1", out)
+        self.assertIn("total size: 3 bytes", out)
+
+
 class MainTest(unittest.TestCase):
     """Проверка запуска эмулятора."""
 

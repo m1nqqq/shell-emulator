@@ -1,0 +1,11 @@
+path,type,encoding,content
+/motd,file,text,Deep VFS: six levels of nesting.
+/etc/config.cfg,file,text,mode=demo
+/var/log/syslog.log,file,text,boot ok
+/tmp,dir,,
+/home/user/.bashrc,file,text,alias ll='ls -l'
+/home/user/docs/notes/todo.txt,file,text,write tests
+/home/user/docs/notes/ideas.txt,file,text,more commands
+/home/user/projects/emulator/README.md,file,text,# Emulator
+/home/user/projects/emulator/src/main.py,file,text,print('hi')
+/home/user/projects/emulator/src/data.bin,file,base64,AAECAwQF

@@ -4,6 +4,7 @@ import argparse
 import sys
 
 from shell import Shell
+from vfs import VFS, VFSError, load_csv
 
 NOT_SET = "<not set>"
 EXIT_OK = 0
@@ -19,7 +20,7 @@ def build_parser():
     )
     parser.add_argument(
         "--vfs", metavar="PATH",
-        help="путь к физическому расположению VFS",
+        help="путь к физическому расположению VFS (CSV-файл)",
     )
     parser.add_argument(
         "--script", metavar="PATH",
@@ -48,11 +49,33 @@ def run_startup_script(shell, path):
     return True
 
 
+def load_vfs(path):
+    """Загружает VFS из CSV; без пути — пустая. При ошибке возвращает None."""
+    if path is None:
+        return VFS()
+    try:
+        return load_csv(path)
+    except VFSError as error:
+        print(f"error: cannot load VFS: {error}", file=sys.stderr)
+        return None
+
+
+def show_motd(vfs):
+    """Выводит сообщение из файла motd в корне VFS, если он есть."""
+    text = vfs.motd()
+    if text is not None:
+        print(text.rstrip("\n"))
+
+
 def main(argv=None):
     """Запускает эмулятор и возвращает код завершения процесса."""
     args = build_parser().parse_args(argv)
     print_debug(args)
-    shell = Shell()
+    vfs = load_vfs(args.vfs)
+    if vfs is None:
+        return EXIT_FAILURE
+    show_motd(vfs)
+    shell = Shell(vfs)
     if args.script and not run_startup_script(shell, args.script):
         return EXIT_FAILURE
     if shell.running:

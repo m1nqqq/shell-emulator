@@ -90,6 +90,18 @@ class ExecuteTest(unittest.TestCase):
         self.assertTrue(result)
         self.assertEqual(text, "")
 
+    def test_vfs_info_empty(self):
+        """vfs-info без VFS сообщает о пустой файловой системе."""
+        _, text = capture(make_shell().execute, "vfs-info")
+        self.assertIn("<empty VFS>", text)
+        self.assertIn("files: 0", text)
+
+    def test_vfs_info_rejects_arguments(self):
+        """vfs-info не принимает аргументов."""
+        result, text = capture(make_shell().execute, "vfs-info x")
+        self.assertFalse(result)
+        self.assertIn("extra operand 'x'", text)
+
     def test_exit(self):
         """Команда exit останавливает оболочку."""
         instance = make_shell()

@@ -4,6 +4,7 @@ import getpass
 import socket
 
 import commands
+from vfs import VFS
 
 COMMENT_MARK = "#"
 HOME_DIR = "/"
@@ -44,8 +45,12 @@ def display_cwd(cwd):
 class Shell:
     """Состояние эмулятора и методы выполнения команд."""
 
-    def __init__(self):
-        """Создаёт оболочку с данными пользователя и хоста реальной ОС."""
+    def __init__(self, vfs=None):
+        """Создаёт оболочку с данными пользователя и хоста реальной ОС.
+
+        vfs — загруженная VFS; без неё используется пустая.
+        """
+        self.vfs = vfs if vfs is not None else VFS()
         self.username = get_username()
         self.hostname = socket.gethostname()
         self.cwd = HOME_DIR

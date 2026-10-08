@@ -1,0 +1,12 @@
+path,type,encoding,content
+/motd,file,text,"Welcome to the demo VFS!
+Type 'ls' to look around."
+/readme.txt,file,text,This is a readme file.
+/notes.txt,file,text,"Line one
+Line two
+Line three"
+/hello.txt,file,text,Привет из VFS
+/logo.bin,file,base64,iVBORw0KGgo=
+/.hidden,file,text,secret
+/docs,dir,,
+/docs/guide.txt,file,text,Guide text
