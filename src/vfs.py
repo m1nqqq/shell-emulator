@@ -17,6 +17,7 @@ import csv
 import posixpath
 
 ROOT = "/"
+HOME_MARK = "~"
 COLUMNS = ["path", "type", "encoding", "content"]
 TYPE_DIR = "dir"
 TYPE_FILE = "file"
@@ -50,6 +51,19 @@ class Node:
 def split_path(path):
     """Делит абсолютный путь на непустые компоненты."""
     return [part for part in path.split(ROOT) if part]
+
+
+def normalize(cwd, path):
+    """Превращает путь (абсолютный, относительный или с ~) в абсолютный.
+
+    Символ ~ обозначает домашний каталог, то есть корень VFS.
+    Компоненты . и .. раскрываются; выше корня подняться нельзя.
+    """
+    if path == HOME_MARK or path.startswith(HOME_MARK + ROOT):
+        path = ROOT + path[len(HOME_MARK):]
+    if not path.startswith(ROOT):
+        path = posixpath.join(cwd, path)
+    return ROOT + posixpath.normpath(path).lstrip(ROOT)
 
 
 def decode_content(encoding, content):

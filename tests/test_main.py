@@ -121,10 +121,10 @@ class MainTest(unittest.TestCase):
     def test_script_executed(self):
         """Стартовый скрипт выполняется и завершает работу."""
         with tempfile.TemporaryDirectory() as folder:
-            path = write_script(folder, "ls x\nexit\n")
+            path = write_script(folder, "cal 2 2024\nexit\n")
             code, out, _ = run_main(["--script", path])
         self.assertEqual(code, 0)
-        self.assertIn("ls: args = ['x']", out)
+        self.assertIn("February 2024", out)
 
     def test_missing_script(self):
         """Отсутствующий скрипт даёт сообщение об ошибке и код 1."""
@@ -145,7 +145,7 @@ class MainTest(unittest.TestCase):
     def test_interactive_after_script_without_exit(self):
         """Если скрипт не завершился командой exit, начинается REPL."""
         with tempfile.TemporaryDirectory() as folder:
-            path = write_script(folder, "ls\n")
+            path = write_script(folder, "cal 2024\n")
             code, out, _ = run_main(["--script", path])
         self.assertEqual(code, 0)
         self.assertTrue(out.endswith("\n"))

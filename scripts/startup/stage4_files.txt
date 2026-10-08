@@ -1,0 +1,17 @@
+# Стартовый скрипт этапа 4 для VFS scripts/vfs/files.csv.
+# Запуск: python src/main.py --vfs scripts/vfs/files.csv --script scripts/startup/stage4_files.txt
+
+whoami
+ls
+ls -a
+ls -l
+ls docs
+ls -l docs /readme.txt
+cd docs
+ls -l
+cd ..
+find
+find / -name "*.txt"
+find / -type f -name "*.bin"
+cal 12 2025
+exit

@@ -67,16 +67,24 @@ class PromptTest(unittest.TestCase):
 class ExecuteTest(unittest.TestCase):
     """Проверка выполнения команд."""
 
-    def test_ls_stub(self):
-        """Заглушка ls выводит имя и аргументы."""
-        result, text = capture(make_shell().execute, "ls -l")
+    def test_known_command(self):
+        """Известная команда выполняется и выводит результат."""
+        result, text = capture(make_shell().execute, "whoami")
         self.assertTrue(result)
-        self.assertEqual(text, "ls: args = ['-l']\n")
+        self.assertEqual(text, "bob\n")
 
-    def test_cd_stub(self):
-        """Заглушка cd выводит имя и аргументы."""
-        _, text = capture(make_shell().execute, "cd docs")
-        self.assertEqual(text, "cd: args = ['docs']\n")
+    def test_command_error(self):
+        """Ошибка команды выводится с её именем, результат — False."""
+        result, text = capture(make_shell().execute, "cd nowhere")
+        self.assertFalse(result)
+        self.assertEqual(text, "cd: nowhere: No such file or directory\n")
+
+    def test_prompt_follows_cwd(self):
+        """После cd приглашение показывает текущий каталог."""
+        instance = make_shell()
+        instance.vfs.make_dirs(["a", "b"])
+        capture(instance.execute, "cd a/b")
+        self.assertEqual(instance.prompt(), "bob@pc:~/a/b$ ")
 
     def test_unknown_command(self):
         """Неизвестная команда сообщает об ошибке."""
@@ -123,26 +131,26 @@ class ScriptTest(unittest.TestCase):
 
     def test_input_and_output_shown(self):
         """На экране отображаются и ввод, и вывод."""
-        output = self.run_text("ls a\n")
-        self.assertEqual(output, "bob@pc:~$ ls a\nls: args = ['a']\n")
+        output = self.run_text("whoami\n")
+        self.assertEqual(output, "bob@pc:~$ whoami\nbob\n")
 
     def test_comments_and_blank_lines(self):
         """Комментарии и пустые строки не выполняются."""
-        output = self.run_text("# note\n\nls # tail\n")
+        output = self.run_text("# note\n\nwhoami # tail\n")
         self.assertEqual(
-            output, "# note\nbob@pc:~$ ls # tail\nls: args = []\n")
+            output, "# note\nbob@pc:~$ whoami # tail\nbob\n")
 
     def test_error_reported_and_run_continues(self):
         """Ошибка сообщается, выполнение продолжается."""
-        output = self.run_text("foo\nls\n")
+        output = self.run_text("foo\nwhoami\n")
         self.assertIn("unknown command: foo", output)
         self.assertIn("script error: line 1: command failed", output)
-        self.assertIn("ls: args = []", output)
+        self.assertIn("\nbob\n", output)
 
     def test_stops_after_exit(self):
         """После exit остальные строки не выполняются."""
-        output = self.run_text("exit\nls\n")
-        self.assertNotIn("ls: args", output)
+        output = self.run_text("exit\nwhoami\n")
+        self.assertNotIn("whoami", output)
 
     def test_missing_file(self):
         """Отсутствующий файл скрипта вызывает OSError."""
@@ -156,9 +164,10 @@ class ReplTest(unittest.TestCase):
     def test_repl_runs_until_exit(self):
         """REPL выполняет команды и завершается по exit."""
         instance = make_shell()
-        with mock.patch("builtins.input", side_effect=["ls", "exit", "ls"]):
+        side = ["whoami", "exit", "whoami"]
+        with mock.patch("builtins.input", side_effect=side):
             _, text = capture(instance.repl)
-        self.assertEqual(text.count("ls: args"), 1)
+        self.assertEqual(text, "bob\n")
 
     def test_repl_eof(self):
         """Конец ввода завершает REPL."""

@@ -12,17 +12,19 @@ UNIX-подобной ОС: показывает приглашение, раз�
 команд выполняется как в интерактивном режиме, так и из стартового
 скрипта.
 
-Реализовано (этапы 1–3): REPL, параметры командной строки, стартовый
+Реализовано (этапы 1–4): REPL, параметры командной строки, стартовый
 скрипт, отладочный вывод параметров, виртуальная файловая система (VFS)
-из CSV-файла, сообщение motd, служебная команда `vfs-info`,
-команды-заглушки `ls`, `cd` и `exit`.
+из CSV-файла, сообщение motd, служебная команда `vfs-info`, команды
+`ls`, `cd`, `cal`, `whoami`, `find` и `exit`.
 
 ## Функции и настройки
 
 ### Приглашение к вводу
 
 Формируется из реальных данных ОС: `username@hostname:~$`
-(`getpass.getuser()` и `socket.gethostname()`).
+(`getpass.getuser()` и `socket.gethostname()`). Домашним каталогом
+считается корень VFS и обозначается `~`; после `cd` приглашение
+показывает текущий каталог: `username@hostname:~/docs/notes$`.
 
 ### Параметры командной строки
 
@@ -107,13 +109,45 @@ path,type,encoding,content
 
 ### Команды
 
-| Команда | Описание                                           |
-|---------|----------------------------------------------------|
-| `ls`       | Заглушка: выводит своё имя и аргументы          |
-| `cd`       | Заглушка: выводит своё имя и аргументы          |
-| `vfs-info` | Служебная: источник, число каталогов и файлов, размер |
-| `exit`     | Завершает работу эмулятора                      |
+| Команда    | Описание                                               |
+|------------|--------------------------------------------------------|
+| `ls`       | Содержимое каталогов и файлов VFS                      |
+| `cd`       | Смена текущего каталога                                |
+| `cal`      | Календарь                                              |
+| `whoami`   | Имя текущего пользователя                              |
+| `find`     | Поиск файлов и каталогов в VFS                         |
+| `vfs-info` | Служебная: источник, число каталогов и файлов, размер  |
+| `exit`     | Завершает работу эмулятора                             |
 
+Пути могут быть абсолютными (`/home/user`), относительными (`docs/a.txt`),
+содержать `.` и `..` и начинаться с `~` (корень VFS). Подняться выше
+корня нельзя: `cd ..` в корне остаётся в корне.
+
+**`ls [-a] [-l] [ПУТЬ...]`** — без аргументов показывает текущий каталог.
+Режимы: `-a` — показывать скрытые файлы (имена, начинающиеся с точки);
+`-l` — подробный формат (`d`/`-` — каталог или файл, размер в байтах,
+имя); опции можно объединять (`-la`). Для файла выводится его имя.
+Для нескольких путей перед содержимым каждого каталога печатается
+заголовок `путь:`.
+
+**`cd [ПУТЬ]`** — без аргумента и для `~` переходит в корень VFS.
+Ошибки: нет такого пути, путь — файл, больше одного аргумента.
+
+**`cal [-m] [[МЕСЯЦ] ГОД]`** — без аргументов печатает текущий месяц,
+с одним числом — весь год, с двумя — указанный месяц (1–12) и год
+(1–9999). По умолчанию неделя начинается с воскресенья, опция `-m` —
+с понедельника.
+
+**`whoami`** — выводит имя пользователя ОС (то же, что в приглашении).
+
+**`find [ПУТЬ...] [-name ШАБЛОН] [-type f|d]`** — рекурсивно обходит
+VFS начиная с указанных путей (по умолчанию `.`) и печатает найденное;
+пути выводятся в том виде, как они заданы (`./docs/a.txt`).
+`-name` — шаблон имени с `*`, `?`, `[...]` (кавычки вокруг шаблона
+необязательны), `-type f` — только файлы, `-type d` — только каталоги.
+
+Ошибки команд выводятся в виде `команда: сообщение`
+(например, `ls: cannot access 'x': No such file or directory`).
 Неизвестная команда: `unknown command: <имя>`. Ctrl+C отменяет ввод
 строки, Ctrl+D (Ctrl+Z и Enter в Windows) завершает работу.
 
@@ -145,17 +179,19 @@ scripts\test_stage2_errors.bat     ошибки параметров и скри
 scripts\test_stage3_variants.bat   три варианта VFS + стартовый скрипт
 scripts\test_stage3_motd.bat       motd и vfs-info для трёх вариантов VFS
 scripts\test_stage3_errors.bat     ошибки загрузки VFS
+scripts\test_stage4.bat            все режимы ls, cd, cal, whoami, find
 ```
 
-Стартовый скрипт `scripts/startup/stage3_all.txt` проверяет все команды
-этапов 1–3, включая работу с VFS и обработку ошибок.
+Стартовые скрипты эмулятора проверяют команды, включая работу с VFS и
+обработку ошибок: `scripts/startup/stage3_all.txt` — команды этапов 1–3,
+`scripts/startup/stage4_all.txt` и `stage4_files.txt` — команды этапа 4.
 
 ## Запуск
 
 ```
 run.bat                    # Windows
 ./run.sh                   # Linux / macOS
-python src/main.py --vfs scripts/vfs/files.csv --script scripts/startup/stage3_all.txt
+python src/main.py --vfs scripts/vfs/deep.csv --script scripts/startup/stage4_all.txt
 ```
 
 ## Примеры использования
@@ -167,8 +203,8 @@ python src/main.py --vfs scripts/vfs/files.csv --script scripts/startup/stage3_a
 [debug] startup parameters:
 [debug]   vfs = <not set>
 [debug]   script = <not set>
-user@host:~$ ls -l /tmp
-ls: args = ['-l', '/tmp']
+user@host:~$ whoami
+user
 user@host:~$ foo
 unknown command: foo
 user@host:~$ exit
@@ -191,6 +227,29 @@ total size: 145 bytes
 user@host:~$ exit
 ```
 
+Работа с VFS (`scripts/vfs/deep.csv`):
+
+```
+user@host:~$ cd home/user/projects
+user@host:~/home/user/projects$ ls -l
+d        0 emulator
+user@host:~/home/user/projects$ find . -name "*.py"
+./emulator/src/main.py
+user@host:~/home/user/projects$ cd /nowhere
+cd: /nowhere: No such file or directory
+user@host:~/home/user/projects$ cd
+user@host:~$ cal 2 2024
+   February 2024
+Su Mo Tu We Th Fr Sa
+             1  2  3
+ 4  5  6  7  8  9 10
+11 12 13 14 15 16 17
+18 19 20 21 22 23 24
+25 26 27 28 29
+user@host:~$ whoami
+user
+```
+
 Ошибка загрузки VFS:
 
 ```
@@ -207,9 +266,15 @@ error: cannot load VFS: file not found: scripts/vfs/missing.csv
 [debug]   script = scripts/startup/stage2_errors.txt
 # Скрипт с ошибками: эмулятор сообщает об ошибке и продолжает работу.
 user@host:~$ ls
-ls: args = []
 user@host:~$ foo bar
 unknown command: foo
 script error: line 3: command failed
+user@host:~$ cd /usr
+cd: /usr: No such file or directory
+script error: line 4: command failed
+user@host:~$ unknown_command
+unknown command: unknown_command
+script error: line 5: command failed
+user@host:~$ ls -l
 user@host:~$ exit
 ```
