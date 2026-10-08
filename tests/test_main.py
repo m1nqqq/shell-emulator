@@ -1,66 +1,100 @@
-"""Тесты этапа 1: парсер, приглашение и команды."""
+"""Тесты точки входа: параметры командной строки и запуск скрипта."""
 
+import contextlib
+import io
 import os
-import sys
+import tempfile
 import unittest
 from unittest import mock
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+import context
 
-import main  # noqa: E402
-
-
-class ParseTest(unittest.TestCase):
-    """Проверка разбора строки ввода."""
-
-    def test_command_and_args(self):
-        """Команда и аргументы делятся по пробелам."""
-        self.assertEqual(main.parse("ls -l /tmp"), ("ls", ["-l", "/tmp"]))
-
-    def test_extra_spaces(self):
-        """Лишние пробелы игнорируются."""
-        self.assertEqual(main.parse("  cd   a  b "), ("cd", ["a", "b"]))
-
-    def test_empty(self):
-        """Пустая строка даёт пустую команду."""
-        self.assertEqual(main.parse("   "), ("", []))
+main = context.load("main")
 
 
-class PromptTest(unittest.TestCase):
-    """Проверка приглашения к вводу."""
+def run_main(argv):
+    """Запускает main, возвращает (код, stdout, stderr)."""
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        with mock.patch("builtins.input", side_effect=EOFError):
+            code = main.main(argv)
+    return code, out.getvalue(), err.getvalue()
 
-    def test_prompt_format(self):
-        """Приглашение имеет вид username@hostname:~$ ."""
-        with mock.patch("getpass.getuser", return_value="bob"), \
-                mock.patch("socket.gethostname", return_value="pc"):
-            self.assertEqual(main.make_prompt(), "bob@pc:~$ ")
+
+def write_script(folder, text):
+    """Создаёт файл стартового скрипта и возвращает его путь."""
+    path = os.path.join(folder, "start.txt")
+    with open(path, "w", encoding="utf-8") as file:
+        file.write(text)
+    return path
 
 
-class ExecuteTest(unittest.TestCase):
-    """Проверка выполнения команд."""
+class ArgsTest(unittest.TestCase):
+    """Проверка параметров командной строки."""
 
-    def test_ls_stub(self):
-        """Заглушка ls выводит имя и аргументы."""
-        with mock.patch("builtins.print") as fake_print:
-            main.execute("ls", ["-l"])
-        fake_print.assert_called_once_with("ls: args = ['-l']")
+    def test_defaults(self):
+        """Без параметров значения не заданы."""
+        args = main.build_parser().parse_args([])
+        self.assertIsNone(args.vfs)
+        self.assertIsNone(args.script)
 
-    def test_cd_stub(self):
-        """Заглушка cd выводит имя и аргументы."""
-        with mock.patch("builtins.print") as fake_print:
-            main.execute("cd", ["docs"])
-        fake_print.assert_called_once_with("cd: args = ['docs']")
+    def test_both_params(self):
+        """Параметры --vfs и --script читаются."""
+        args = main.build_parser().parse_args(
+            ["--vfs", "a.csv", "--script", "s.txt"])
+        self.assertEqual((args.vfs, args.script), ("a.csv", "s.txt"))
 
-    def test_unknown_command(self):
-        """Неизвестная команда сообщает об ошибке."""
-        with mock.patch("builtins.print") as fake_print:
-            main.execute("foo", [])
-        fake_print.assert_called_once_with("unknown command: foo")
+    def test_unknown_param(self):
+        """Неизвестный параметр вызывает ошибку разбора."""
+        with contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit):
+                main.build_parser().parse_args(["--bogus"])
 
-    def test_exit(self):
-        """Команда exit завершает работу."""
-        with self.assertRaises(SystemExit):
-            main.execute("exit", [])
+
+class DebugTest(unittest.TestCase):
+    """Проверка отладочного вывода параметров."""
+
+    def test_debug_output(self):
+        """Все параметры выводятся в формате ключ-значение."""
+        _, out, _ = run_main(["--vfs", "a.csv"])
+        self.assertIn("[debug]   vfs = a.csv", out)
+        self.assertIn("[debug]   script = <not set>", out)
+
+
+class MainTest(unittest.TestCase):
+    """Проверка запуска эмулятора."""
+
+    def test_script_executed(self):
+        """Стартовый скрипт выполняется и завершает работу."""
+        with tempfile.TemporaryDirectory() as folder:
+            path = write_script(folder, "ls x\nexit\n")
+            code, out, _ = run_main(["--script", path])
+        self.assertEqual(code, 0)
+        self.assertIn("ls: args = ['x']", out)
+
+    def test_missing_script(self):
+        """Отсутствующий скрипт даёт сообщение об ошибке и код 1."""
+        code, _, err = run_main(["--script", "no_such_script.txt"])
+        self.assertEqual(code, 1)
+        self.assertIn("cannot read startup script", err)
+
+    def test_bad_encoding_script(self):
+        """Скрипт в неверной кодировке сообщает об ошибке."""
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "bad.txt")
+            with open(path, "wb") as file:
+                file.write(b"\xff\xfe\x00")
+            code, _, err = run_main(["--script", path])
+        self.assertEqual(code, 1)
+        self.assertIn("invalid UTF-8", err)
+
+    def test_interactive_after_script_without_exit(self):
+        """Если скрипт не завершился командой exit, начинается REPL."""
+        with tempfile.TemporaryDirectory() as folder:
+            path = write_script(folder, "ls\n")
+            code, out, _ = run_main(["--script", path])
+        self.assertEqual(code, 0)
+        self.assertTrue(out.endswith("\n"))
 
 
 if __name__ == "__main__":

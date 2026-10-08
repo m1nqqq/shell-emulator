@@ -1,55 +1,64 @@
-"""Эмулятор оболочки ОС. Этап 1: REPL."""
+"""Точка входа эмулятора оболочки ОС."""
 
-import getpass
-import socket
+import argparse
 import sys
 
+from shell import Shell
 
-def make_prompt():
-    """Возвращает приглашение вида username@hostname:~$ ."""
-    username = getpass.getuser()
-    hostname = socket.gethostname()
-    return f"{username}@{hostname}:~$ "
-
-
-def parse(command):
-    """Делит строку на команду и список аргументов по пробелам."""
-    parts = command.split()
-    if not parts:
-        return "", []
-    return parts[0], parts[1:]
+NOT_SET = "<not set>"
+EXIT_OK = 0
+EXIT_FAILURE = 1
 
 
-def execute(command, args):
-    """Выполняет команду-заглушку ls, cd или exit."""
-    if command == "ls":
-        print(f"ls: args = {args}")
-    elif command == "cd":
-        print(f"cd: args = {args}")
-    elif command == "exit":
-        sys.exit(0)
-    else:
-        print(f"unknown command: {command}")
+def build_parser():
+    """Создаёт разборщик параметров командной строки."""
+    parser = argparse.ArgumentParser(
+        prog="main.py",
+        description="Эмулятор языка оболочки UNIX-подобной ОС.",
+        allow_abbrev=False,
+    )
+    parser.add_argument(
+        "--vfs", metavar="PATH",
+        help="путь к физическому расположению VFS",
+    )
+    parser.add_argument(
+        "--script", metavar="PATH",
+        help="путь к стартовому скрипту",
+    )
+    return parser
 
 
-def repl():
-    """Главный цикл: читает ввод, разбирает и выполняет команды."""
-    while True:
-        try:
-            command = input(make_prompt())
-        except EOFError:
-            print()
-            break
-        except KeyboardInterrupt:
-            print()
-            continue
+def print_debug(args):
+    """Выводит все заданные параметры в формате ключ-значение."""
+    print("[debug] startup parameters:")
+    for key, value in vars(args).items():
+        shown = NOT_SET if value is None else value
+        print(f"[debug]   {key} = {shown}")
 
-        name, args = parse(command)
-        if not name:
-            continue
 
-        execute(name, args)
+def run_startup_script(shell, path):
+    """Выполняет стартовый скрипт; сообщает, если его не удалось прочесть."""
+    try:
+        shell.run_script(path)
+    except (OSError, UnicodeDecodeError) as error:
+        reason = getattr(error, "strerror", None) or "invalid UTF-8 text"
+        print(f"error: cannot read startup script '{path}': {reason}",
+              file=sys.stderr)
+        return False
+    return True
+
+
+def main(argv=None):
+    """Запускает эмулятор и возвращает код завершения процесса."""
+    args = build_parser().parse_args(argv)
+    print_debug(args)
+    shell = Shell()
+    if args.script and not run_startup_script(shell, args.script):
+        return EXIT_FAILURE
+    if shell.running:
+        shell.repl()
+    return EXIT_OK
 
 
 if __name__ == "__main__":
-    repl()
+    sys.exit(main())
